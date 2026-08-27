@@ -2,29 +2,21 @@
 
 on:
   push:
-    branches: [ main, develop, 'feature/**' ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     
-    strategy:
-      matrix:
-        python-version: ['3.11']
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Set up Python ${{ matrix.python-version }}
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
-    
-    - name: Display Python version
-      run: python -c "import sys; print(sys.version)"
+        python-version: '3.11'
     
     - name: Install dependencies
       run: |
@@ -32,24 +24,14 @@ jobs:
         pip install -r requirements.txt
     
     - name: Lint with flake8
-      run: |
-        flake8 app.py tests/
-        echo "✓ Linting passed!"
-      continue-on-error: false
+      run: flake8 app.py tests/
     
     - name: Run unit tests
       run: |
-        pytest tests/ -v --tb=short
+        PYTHONPATH=${{ github.workspace }} pytest tests/ -v --tb=short
         echo "✓ Unit tests passed!"
     
     - name: Generate coverage report
       run: |
-        pytest tests/ --cov=. --cov-report=xml --cov-report=term-missing
+        PYTHONPATH=${{ github.workspace }} pytest tests/ --cov=. --cov-report=term-missing
         echo "✓ Coverage report generated!"
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./coverage.xml
-        fail_ci_if_error: false
-      continue-on-error: true
