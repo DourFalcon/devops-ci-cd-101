@@ -31,3 +31,7 @@ pytest tests/ -v --cov=.
 - \GET /\ - Home endpoint
 - \GET /health\ - Health check
 - \GET /api/info\ - App info
+
+## Status
+
+Tests: ✅ Passing
