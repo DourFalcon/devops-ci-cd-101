@@ -1,0 +1,92 @@
+﻿name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+    branches: [ main ]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker
+      run: |
+        docker --version
+        docker-compose --version
+    
+    - name: Pull Docker image from Docker Hub
+      run: |
+        docker pull ${{ secrets.DOCKER_USERNAME }}/devops-flask:latest
+        echo "✓ Docker image pulled successfully!"
+    
+    - name: Start application (deploy to test environment)
+      run: |
+        export DOCKER_IMAGE="${{ secrets.DOCKER_USERNAME }}/devops-flask:latest"
+        docker-compose up -d
+        echo "✓ Application started!"
+        sleep 5
+    
+    - name: Check application status
+      run: |
+        docker-compose ps
+        echo "✓ Container status checked!"
+    
+    - name: Run health check (smoke test 1)
+      run: |
+        echo "Testing health endpoint..."
+        curl -f http://localhost:5000/health || exit 1
+        echo "✓ Health check passed!"
+    
+    - name: Run endpoint test (smoke test 2)
+      run: |
+        echo "Testing home endpoint..."
+        curl -f http://localhost:5000/ || exit 1
+        echo "✓ Home endpoint working!"
+    
+    - name: Run info endpoint test (smoke test 3)
+      run: |
+        echo "Testing info endpoint..."
+        curl -f http://localhost:5000/api/info || exit 1
+        echo "✓ Info endpoint working!"
+    
+    - name: Verify response content
+      run: |
+        echo "Verifying response content..."
+        RESPONSE=$(curl -s http://localhost:5000/)
+        echo "Response: $RESPONSE"
+        
+        if echo "$RESPONSE" | grep -q "DevOps Learning Started"; then
+          echo "✓ Response content verified!"
+        else
+          echo "✗ Response content invalid!"
+          exit 1
+        fi
+    
+    - name: View application logs
+      if: always()
+      run: |
+        echo "=== Application Logs ==="
+        docker-compose logs devops-flask
+    
+    - name: Stop application (cleanup)
+      if: always()
+      run: |
+        docker-compose down
+        echo "✓ Application stopped and cleaned up!"
+    
+    - name: Deployment successful
+      run: |
+        echo "✅ DEPLOYMENT SUCCESSFUL!"
+        echo ""
+        echo "Pipeline Summary:"
+        echo "  ✓ Stage 1: TEST (Unit tests + linting)"
+        echo "  ✓ Stage 2: BUILD (Docker image + vulnerability scan)"
+        echo "  ✓ Stage 3: DEPLOY (Health checks + smoke tests)"
+        echo ""
+        echo "Your app is production-ready! 🚀"

@@ -1,0 +1,15 @@
+﻿version: '3.8'
+
+services:
+  devops-flask:
+    image: $DOCKER_IMAGE
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
