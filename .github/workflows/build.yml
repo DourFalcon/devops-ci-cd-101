@@ -18,18 +18,37 @@ jobs:
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
+
+    - name: Normalize Docker Hub credentials
+      id: docker-creds
+      env:
+        RAW_DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        RAW_DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run: |
+        docker_user="$RAW_DOCKER_USERNAME"
+        docker_token="$RAW_DOCKER_PASSWORD"
+
+        docker_user="${docker_user#"${docker_user%%[![:space:]]*}"}"
+        docker_user="${docker_user%"${docker_user##*[![:space:]]}"}"
+        docker_token="${docker_token#"${docker_token%%[![:space:]]*}"}"
+        docker_token="${docker_token%"${docker_token##*[![:space:]]}"}"
+
+        echo "::add-mask::$docker_user"
+        echo "::add-mask::$docker_token"
+        echo "user=$docker_user" >> "$GITHUB_OUTPUT"
+        echo "token=$docker_token" >> "$GITHUB_OUTPUT"
     
     - name: Log in to Docker Hub
       uses: docker/login-action@v2
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        username: ${{ steps.docker-creds.outputs.user }}
+        password: ${{ steps.docker-creds.outputs.token }}
     
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v4
       with:
-        images: docker.io/${{ secrets.DOCKER_USERNAME }}/devops-flask
+        images: docker.io/${{ steps.docker-creds.outputs.user }}/devops-flask
         tags: |
           type=ref,event=branch
           type=sha,prefix={{branch}}-
@@ -50,7 +69,7 @@ jobs:
     - name: Run Trivy vulnerability scan
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: docker.io/${{ secrets.DOCKER_USERNAME }}/devops-flask:latest
+        image-ref: docker.io/${{ steps.docker-creds.outputs.user }}/devops-flask:latest
         format: sarif
         output: trivy-results.sarif
       continue-on-error: true
@@ -64,4 +83,4 @@ jobs:
     - name: Image pushed successfully
       run: |
         echo "✓ Docker image built and pushed!"
-        echo "Image: docker.io/${{ secrets.DOCKER_USERNAME }}/devops-flask:latest"
+        echo "Image: docker.io/${{ steps.docker-creds.outputs.user }}/devops-flask:latest"
